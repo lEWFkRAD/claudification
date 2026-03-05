@@ -10,6 +10,7 @@ const C = {
   accent: "#5865F2", green: "#23a55a", orange: "#f0a020", red: "#ed4245",
   yellow: "#fee75c", gold: "#c9a44a", bgDark: "#1e1f22", bgDarker: "#111214",
   bgSidebar: "#2b2d31", bgContent: "#313338", bgElevated: "#232428",
+  bgMedium: "#3b3d42", borderDark: "rgba(255,255,255,0.07)",
   textPrimary: "#f2f3f5", textSecondary: "#b5bac1", textMuted: "#6d6f78",
   font: "'Segoe UI','SF Pro Display',-apple-system,sans-serif",
 };
@@ -113,15 +114,18 @@ const FILE_CATEGORIES = [
   { id: 10, name: "Archive Vault", icon: "🗄️", activity: "none", tier: "Executive" },
 ];
 
-/* ── Sidebar ── */
-const SIDEBAR_CATS = [
-  { id: "home", label: "Home", icon: "🏠", group: 0, tint: "#3b5998" },
-  { id: "comms", label: "Comms", icon: "💬", group: 1, tint: "#5865F2" },
-  { id: "filesharing", label: "FILE\nSHARING", icon: null, isFS: true, group: 1, tint: "#2d7d46" },
-  { id: "admin", label: "Admin", icon: "🛡️", group: 2, tint: "#8b3a3a" },
-  { id: "reports", label: "Reports", icon: "📈", group: 2, tint: "#7c5c2e" },
-  { id: "docs", label: "Docs", icon: "📖", group: 2, tint: "#4a4a6a" },
-  { id: "agent", label: "Agent", icon: "🤖", group: 3, tint: "#6b3fa0" },
+/* ── Sidebar — Server/Channel Navigation (unified pattern) ── */
+const SERVERS = [
+  { id: 'home', label: 'Home', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2v10a1 1 0 01-1 1h-3m-4 0v-6a1 1 0 011-1h2a1 1 0 011 1v6', page: 'home' },
+  { id: 'divider0', type: 'divider' },
+  { id: 'comms', label: 'Comms', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z', page: 'comms' },
+  { id: 'filesharing', label: 'Files', icon: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z', page: 'filesharing' },
+  { id: 'divider1', type: 'divider' },
+  { id: 'admin', label: 'Admin', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', page: 'admin' },
+  { id: 'reports', label: 'Reports', icon: 'M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', page: 'reports' },
+  { id: 'divider2', type: 'divider' },
+  { id: 'docs', label: 'Docs', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', page: 'docs' },
+  { id: 'agent', label: 'Agent', icon: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z', page: 'agent' },
 ];
 
 /* ── System checks ── */
@@ -193,39 +197,13 @@ function TypingDots() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SIDEBAR BUBBLE
+   SERVER ICON — Unified sidebar pattern (SVG icons, clean states)
    ═══════════════════════════════════════════════════════════════ */
-function SidebarBubble({ cat, active, onClick }) {
-  const isActive = active === cat.id;
-  const [hov, setHov] = useState(false);
-  const tint = cat.tint || C.bgDark;
-  const baseBg = `linear-gradient(145deg, ${tint}, ${C.bgDark})`;
-  const activeBg = `linear-gradient(145deg, ${C.accent}, #4752c4)`;
-  const hoverBg = `linear-gradient(145deg, ${tint}dd, ${tint}88)`;
+function ServerIconSvg({ d, size = 20 }) {
   return (
-    <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4 }}>
-      <div style={{ position: "absolute", left: -4, width: 4, height: isActive ? 36 : hov ? 20 : 0, borderRadius: "0 4px 4px 0", background: C.textPrimary, transition: "height 0.2s" }} />
-      {hov && <div style={{ position: "absolute", left: 62, zIndex: 999, background: "#111214", color: C.textPrimary, padding: "5px 10px", borderRadius: 5, fontSize: 12, fontFamily: C.font, fontWeight: 600, whiteSpace: "nowrap", pointerEvents: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.5)" }}>{cat.label.replace("\n", " ")}</div>}
-      <button onClick={() => onClick(cat.id)} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-        style={{
-          width: 48, height: 48, borderRadius: isActive || hov ? 16 : 24,
-          background: isActive ? activeBg : hov ? hoverBg : baseBg,
-          border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-          transition: "all 0.25s", overflow: "hidden",
-          boxShadow: isActive
-            ? "0 2px 8px rgba(88,101,242,0.4), inset 0 1px 0 rgba(255,255,255,0.1)"
-            : hov
-              ? `0 2px 8px ${tint}60, inset 0 1px 0 rgba(255,255,255,0.08)`
-              : "inset 0 1px 0 rgba(255,255,255,0.06), inset 0 -1px 0 rgba(0,0,0,0.2)",
-        }}>
-        {cat.isFS ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1, gap: 1 }}>
-            <span style={{ fontSize: 11, fontFamily: C.font, fontWeight: 700, color: C.textPrimary, letterSpacing: "0.6px" }}>FILE</span>
-            <span style={{ fontSize: 7.8, fontFamily: C.font, fontWeight: 500, color: "rgba(255,255,255,0.7)", letterSpacing: "0.15px" }}>SHARING</span>
-          </div>
-        ) : <span style={{ fontSize: 20, lineHeight: 1 }}>{cat.icon}</span>}
-      </button>
-    </div>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} />
+    </svg>
   );
 }
 
@@ -250,141 +228,155 @@ function FolderCard({ category, onClick, isSelected }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   PROFILE BAR (bottom of far-left sidebar)
+   PROFILE BAR (bottom of server rail)
    ═══════════════════════════════════════════════════════════════ */
 function ProfileBar() {
-  const [hov, setHov] = useState(false);
   return (
-    <div style={{ width: 72, display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 0 12px 0", borderTop: "1px solid rgba(255,255,255,0.06)", background: C.bgDarker }}>
-      <div style={{ display: "flex", gap: 2, marginBottom: 6 }}>
-        {["🎤", "🎧"].map((ico, i) => (
-          <button key={i} style={{ width: 24, height: 24, borderRadius: 5, background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, opacity: 0.45, transition: "all 0.15s" }}
-            onMouseEnter={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.background = "rgba(255,255,255,0.07)"; }}
-            onMouseLeave={e => { e.currentTarget.style.opacity = "0.45"; e.currentTarget.style.background = "transparent"; }}>{ico}</button>
-        ))}
-      </div>
-      <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} style={{ position: "relative", cursor: "pointer" }}>
-        <div style={{ width: 48, height: 48, borderRadius: hov ? 16 : 24, background: `linear-gradient(135deg,${C.accent},#7289da)`, display: "flex", alignItems: "center", justifyContent: "center", transition: "border-radius 0.25s" }}>
-          <span style={{ fontSize: 16, fontFamily: C.font, fontWeight: 800, color: "#fff" }}>JW</span>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 0 10px 0", borderTop: `1px solid ${C.borderDark}`, gap: 6 }}>
+      <div style={{ position: "relative" }}>
+        <div style={{ width: 36, height: 36, borderRadius: "50%", background: C.bgMedium, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ fontSize: 13, fontFamily: C.font, fontWeight: 700, color: C.textSecondary }}>JW</span>
         </div>
-        <div style={{ position: "absolute", bottom: -1, right: -1, width: 12, height: 12, borderRadius: "50%", background: C.green, border: `3px solid ${C.bgDarker}` }} />
-        {hov && <div style={{ position: "absolute", left: 58, bottom: 4, zIndex: 999, background: "#111214", color: C.textPrimary, padding: "6px 12px", borderRadius: 6, whiteSpace: "nowrap", boxShadow: "0 4px 12px rgba(0,0,0,0.5)" }}>
-          <div style={{ fontSize: 13, fontFamily: C.font, fontWeight: 700 }}>Jeffrey W.</div>
-          <div style={{ fontSize: 11, fontFamily: C.font, color: C.green }}>Admin · Online</div>
-        </div>}
+        <div style={{ position: "absolute", bottom: -1, right: -1, width: 10, height: 10, borderRadius: "50%", background: C.green, border: `2px solid ${C.bgDarker}` }} />
       </div>
-      <button style={{ width: 24, height: 24, borderRadius: 5, background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, opacity: 0.45, transition: "all 0.15s", marginTop: 6 }}
-        onMouseEnter={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.background = "rgba(255,255,255,0.07)"; }}
-        onMouseLeave={e => { e.currentTarget.style.opacity = "0.45"; e.currentTarget.style.background = "transparent"; }}>⚙️</button>
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   CHANNEL LIST — Slim People Panel for Comms, normal for others
+   CHANNEL PANEL — Unified pattern (matches Muse Board)
    ═══════════════════════════════════════════════════════════════ */
-function ChannelList({ activeView, commsTab, onCommsTab }) {
-  // ── Comms mode: no left panel — people panel is on the right ──
-  if (activeView === "comms") return null;
+const CHANNEL_MAP = {
+  home: [
+    { type: "header", label: "LITE PLATFORM" },
+    { type: "item", label: "# dashboard", active: true },
+    { type: "item", label: "# announcements" },
+    { type: "divider" },
+    { type: "header", label: "FOUR SYSTEMS" },
+    { type: "item", label: "OathLedger", prefix: "⚖️" },
+    { type: "item", label: "Lens", prefix: "◎" },
+    { type: "item", label: "Ardent", prefix: "◇" },
+    { type: "item", label: "Muse", prefix: "✦" },
+  ],
+  comms: [
+    { type: "header", label: "CHANNELS" },
+    { type: "item", label: "general", prefix: "#", active: true },
+    { type: "item", label: "tax-returns", prefix: "#" },
+    { type: "item", label: "client-review", prefix: "#" },
+    { type: "item", label: "deadlines", prefix: "#" },
+    { type: "item", label: "announcements", prefix: "#" },
+    { type: "divider" },
+    { type: "header", label: "DIRECT MESSAGES" },
+    { type: "item", label: "Susan" },
+    { type: "item", label: "Molly" },
+    { type: "item", label: "Charles" },
+  ],
+  filesharing: [
+    { type: "header", label: "FILE NAVIGATION" },
+    { type: "item", label: "upload-queue", prefix: "#" },
+    { type: "item", label: "shared-with-me", prefix: "#" },
+    { type: "item", label: "recent-files", prefix: "#", active: true },
+    { type: "divider" },
+    { type: "header", label: "BY PERMISSION" },
+    { type: "item", label: "Executive Only", prefix: "🔒" },
+    { type: "item", label: "Management+", prefix: "🔐" },
+    { type: "item", label: "Engineering", prefix: "🔧" },
+    { type: "item", label: "All Staff", prefix: "🌐" },
+  ],
+  admin: [
+    { type: "header", label: "USER MANAGEMENT" },
+    { type: "item", label: "All Users", prefix: "👥", active: true },
+    { type: "item", label: "Create User", prefix: "+" },
+    { type: "item", label: "Reset PINs", prefix: "🔑" },
+    { type: "divider" },
+    { type: "header", label: "SECURITY" },
+    { type: "item", label: "Permissions", prefix: "🛡️" },
+    { type: "item", label: "Audit Log", prefix: "📋" },
+    { type: "item", label: "Session Policy", prefix: "🔒" },
+    { type: "divider" },
+    { type: "header", label: "SYSTEM" },
+    { type: "item", label: "Health Checks", prefix: "✅" },
+    { type: "item", label: "Backups", prefix: "💾" },
+    { type: "item", label: "Commands", prefix: "⚡" },
+  ],
+  reports: [
+    { type: "header", label: "EXTRACTION" },
+    { type: "item", label: "Job Pipeline", prefix: "📊", active: true },
+    { type: "item", label: "Cost Tracking", prefix: "💰" },
+    { type: "item", label: "LITE Loop Stats", prefix: "📈" },
+    { type: "divider" },
+    { type: "header", label: "QUALITY" },
+    { type: "item", label: "Drift Analysis", prefix: "🎯" },
+    { type: "item", label: "Smoke Tests", prefix: "🧪" },
+    { type: "item", label: "Golden Files", prefix: "🏆" },
+  ],
+  docs: [
+    { type: "header", label: "ARCHITECTURE" },
+    { type: "item", label: "Lite Platform", prefix: "📖", active: true },
+    { type: "item", label: "The LITE Loop", prefix: "🔄" },
+    { type: "item", label: "Four Systems", prefix: "🗃️" },
+    { type: "divider" },
+    { type: "header", label: "GOVERNANCE" },
+    { type: "item", label: "Principles", prefix: "📜" },
+    { type: "item", label: "Checklists", prefix: "📋" },
+    { type: "item", label: "Critical Rules", prefix: "⚠️" },
+  ],
+  agent: [
+    { type: "header", label: "CENTRAL AGENT" },
+    { type: "item", label: "Agent Console", prefix: "🤖", active: true },
+    { type: "item", label: "Live Queries", prefix: "📡" },
+    { type: "divider" },
+    { type: "header", label: "CONNECTED SYSTEMS" },
+    { type: "item", label: "OathLedger", prefix: "⚖️" },
+    { type: "item", label: "Lens", prefix: "◎" },
+    { type: "item", label: "Ardent", prefix: "◇" },
+    { type: "item", label: "Muse", prefix: "✦" },
+    { type: "divider" },
+    { type: "header", label: "DATA STORES" },
+    { type: "item", label: "Transaction Ledger", prefix: "💳" },
+    { type: "item", label: "Facts Store", prefix: "📝" },
+    { type: "item", label: "CAS Telemetry", prefix: "🔍" },
+  ],
+};
 
-  // ── Normal mode: standard channel list for other views ──
-  const channelMap = {
-    home: [
-      { type: "header", label: "LITE PLATFORM" },
-      { type: "item", label: "# dashboard", active: true },
-      { type: "item", label: "# announcements" },
-      { type: "divider" },
-      { type: "header", label: "FOUR SYSTEMS" },
-      { type: "item", label: "⚖️ OathLedger" },
-      { type: "item", label: "◎ Lens" },
-      { type: "item", label: "◇ Ardent" },
-      { type: "item", label: "✦ Muse" },
-    ],
-    filesharing: [
-      { type: "header", label: "FILE NAVIGATION" },
-      { type: "item", label: "# upload-queue" },
-      { type: "item", label: "# shared-with-me" },
-      { type: "item", label: "# recent-files", active: true },
-      { type: "divider" },
-      { type: "header", label: "BY PERMISSION" },
-      { type: "item", label: "🔒 Executive Only" },
-      { type: "item", label: "🔐 Management+" },
-      { type: "item", label: "🔧 Engineering" },
-      { type: "item", label: "🌐 All Staff" },
-    ],
-    admin: [
-      { type: "header", label: "USER MANAGEMENT" },
-      { type: "item", label: "👥 All Users", active: true },
-      { type: "item", label: "➕ Create User" },
-      { type: "item", label: "🔑 Reset PINs" },
-      { type: "divider" },
-      { type: "header", label: "SECURITY" },
-      { type: "item", label: "🛡️ Permissions" },
-      { type: "item", label: "📋 Audit Log" },
-      { type: "item", label: "🔒 Session Policy" },
-      { type: "divider" },
-      { type: "header", label: "SYSTEM" },
-      { type: "item", label: "✅ Health Checks" },
-      { type: "item", label: "💾 Backups" },
-      { type: "item", label: "⚡ Commands" },
-    ],
-    reports: [
-      { type: "header", label: "EXTRACTION" },
-      { type: "item", label: "📊 Job Pipeline", active: true },
-      { type: "item", label: "💰 Cost Tracking" },
-      { type: "item", label: "📈 LITE Loop Stats" },
-      { type: "divider" },
-      { type: "header", label: "QUALITY" },
-      { type: "item", label: "🎯 Drift Analysis" },
-      { type: "item", label: "🧪 Smoke Tests" },
-      { type: "item", label: "🏆 Golden Files" },
-    ],
-    docs: [
-      { type: "header", label: "ARCHITECTURE" },
-      { type: "item", label: "📖 Lite Platform", active: true },
-      { type: "item", label: "🔄 The LITE Loop" },
-      { type: "item", label: "🗃️ Four Systems" },
-      { type: "divider" },
-      { type: "header", label: "GOVERNANCE" },
-      { type: "item", label: "📜 Principles" },
-      { type: "item", label: "📋 Checklists" },
-      { type: "item", label: "⚠️ Critical Rules" },
-    ],
-    agent: [
-      { type: "header", label: "CENTRAL AGENT" },
-      { type: "item", label: "🤖 Agent Console", active: true },
-      { type: "item", label: "📡 Live Queries" },
-      { type: "divider" },
-      { type: "header", label: "CONNECTED SYSTEMS" },
-      { type: "item", label: "⚖️ OathLedger" },
-      { type: "item", label: "◎ Lens" },
-      { type: "item", label: "◇ Ardent" },
-      { type: "item", label: "✦ Muse" },
-      { type: "divider" },
-      { type: "header", label: "DATA STORES" },
-      { type: "item", label: "💳 Transaction Ledger" },
-      { type: "item", label: "📝 Facts Store" },
-      { type: "item", label: "🔍 CAS Telemetry" },
-    ],
-  };
-  const channels = channelMap[activeView] || channelMap.home;
-  const titles = { home: "Lite Platform", filesharing: "📁  File Sharing", admin: "🛡️  Admin Panel", reports: "📈  Reports", docs: "📖  Documentation", agent: "🤖  Agent Hub" };
+function ChannelPanel({ activeView, collapsed, onCollapse }) {
+  if (collapsed) return null;
+
+  const channels = CHANNEL_MAP[activeView] || CHANNEL_MAP.home;
+  const server = SERVERS.find(s => s.id === activeView);
+  const title = server ? server.label : "Claudification";
 
   return (
-    <div style={{ width: 230, minWidth: 230, background: C.bgSidebar, display: "flex", flexDirection: "column", position: "relative" }}>
-      <div style={{ height: 48, borderBottom: "1px solid rgba(0,0,0,0.35)", display: "flex", alignItems: "center", padding: "0 16px", fontFamily: C.font, fontWeight: 700, fontSize: 15, color: C.textPrimary, flexShrink: 0 }}>
-        {titles[activeView] || "CLAUDIFICATION"}
+    <div style={{ width: 190, minWidth: 190, display: "flex", flexDirection: "column", background: C.bgSidebar, borderLeft: `1px solid ${C.borderDark}` }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 12px 8px", minHeight: 44 }}>
+        <span style={{ fontFamily: C.font, fontSize: 15, fontWeight: 600, color: C.textPrimary, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</span>
+        <button onClick={onCollapse} title="Collapse sidebar"
+          style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", padding: 4, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 19l-7-7 7-7" /></svg>
+        </button>
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: "4px 8px 16px 8px" }}>
+      {/* Channel list */}
+      <div style={{ flex: 1, padding: "4px 8px", overflowY: "auto" }}>
         {channels.map((ch, i) => {
-          if (ch.type === "header") return <SectionHeader key={i}>{ch.label}</SectionHeader>;
-          if (ch.type === "divider") return <div key={i} style={{ height: 1, background: "rgba(255,255,255,0.05)", margin: "4px 8px" }} />;
+          if (ch.type === "header") {
+            return <div key={i} style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: C.textMuted, padding: "10px 8px 4px", fontFamily: C.font }}>{ch.label}</div>;
+          }
+          if (ch.type === "divider") {
+            return <div key={i} style={{ height: 1, background: C.borderDark, margin: "6px 4px" }} />;
+          }
           return (
-            <div key={i} style={{ padding: "8px 10px", minHeight: 36, borderRadius: 6, fontSize: 14, fontFamily: C.font, color: ch.active ? C.textPrimary : C.textSecondary, background: ch.active ? "rgba(88,101,242,0.15)" : "transparent", fontWeight: ch.active ? 600 : 400, cursor: "pointer", marginBottom: 2, transition: "background 0.12s" }}
-              onMouseEnter={e => { if (!ch.active) e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
-              onMouseLeave={e => { if (!ch.active) e.currentTarget.style.background = "transparent"; }}>
-              {ch.label}
-            </div>
+            <button key={i} style={{
+              display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "6px 8px",
+              border: "none", background: ch.active ? C.bgElevated : "transparent",
+              color: ch.active ? C.gold : C.textMuted, fontSize: 13, fontFamily: C.font,
+              cursor: "pointer", borderRadius: 4, transition: "all 0.15s", textAlign: "left",
+            }}
+              onMouseEnter={e => { if (!ch.active) { e.currentTarget.style.background = C.bgMedium; e.currentTarget.style.color = C.textPrimary; } }}
+              onMouseLeave={e => { if (!ch.active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.textMuted; } }}>
+              {ch.prefix && <span style={{ color: C.textMuted, fontWeight: 600, fontSize: 13, width: 18, textAlign: "center", flexShrink: 0 }}>{ch.prefix}</span>}
+              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ch.label}</span>
+            </button>
           );
         })}
       </div>
@@ -1426,7 +1418,7 @@ function PlaceholderView({ icon, title }) {
    MAIN CONTENT ROUTER — with file split layout for comms
    ═══════════════════════════════════════════════════════════════ */
 function MainContent({ activeView, commsTab, onCommsTab, fileViewOpen, onToggleFileView }) {
-  const cat = SIDEBAR_CATS.find(c => c.id === activeView);
+  const cat = SERVERS.find(s => s.id === activeView && s.type !== 'divider');
 
   // ── COMMS: special layout with people panel on right ──
   if (activeView === "comms") {
@@ -1492,7 +1484,7 @@ function MainContent({ activeView, commsTab, onCommsTab, fileViewOpen, onToggleF
     <div style={{ flex: 1, background: C.bgContent, display: "flex", flexDirection: "column", minWidth: 0 }}>
       <div style={{ height: 48, borderBottom: "1px solid rgba(0,0,0,0.25)", display: "flex", alignItems: "center", padding: "0 20px", flexShrink: 0, gap: 10 }}>
         <span style={{ fontFamily: C.font, fontWeight: 700, fontSize: 15, color: C.textPrimary }}>
-          {`${cat?.icon || ""} ${cat?.label?.replace("\n", " ") || "Home"}`}
+          {cat?.label || "Home"}
         </span>
       </div>
       <div style={{ flex: 1, overflowY: "auto" }}>{map[activeView] || <HomeView />}</div>
@@ -1501,31 +1493,67 @@ function MainContent({ activeView, commsTab, onCommsTab, fileViewOpen, onToggleF
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   ROOT
+   ROOT — Unified sidebar: server rail + channel panel
    ═══════════════════════════════════════════════════════════════ */
 export default function App() {
   const [activeView, setActiveView] = useState("home");
   const [commsTab, setCommsTab] = useState("conversations");
   const [fileViewOpen, setFileViewOpen] = useState(false);
-  let lastGroup = -1;
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('cf_sidebar_collapsed') === 'true'; } catch { return false; }
+  });
+  const toggleCollapse = () => {
+    setCollapsed(prev => {
+      const next = !prev;
+      try { localStorage.setItem('cf_sidebar_collapsed', String(next)); } catch {}
+      return next;
+    });
+  };
+
   return (
     <div style={{ width: "100%", height: "100vh", display: "flex", background: C.bgDark, fontFamily: C.font, color: C.textPrimary, overflow: "hidden" }}>
-      <div style={{ width: 72, minWidth: 72, background: C.bgDarker, display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 12 }}>
-        <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center" }}>
-          {SIDEBAR_CATS.map(cat => {
-            const showDiv = cat.group !== lastGroup && lastGroup !== -1;
-            lastGroup = cat.group;
-            return (
-              <div key={cat.id}>
-                {showDiv && <div style={{ width: 32, height: 2, borderRadius: 1, background: "rgba(255,255,255,0.07)", margin: "2px auto 4px" }} />}
-                <SidebarBubble cat={cat} active={activeView} onClick={setActiveView} />
-              </div>
-            );
-          })}
+      {/* ── Sidebar container ── */}
+      <aside style={{ display: "flex", flexDirection: "row", flexShrink: 0, height: "100vh", background: C.bgDarker, borderRight: `1px solid ${C.borderDark}`, position: "relative" }}>
+        {/* Server Rail */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 56, padding: "8px 0", gap: 4, background: C.bgDarker, overflowY: "auto" }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+            {SERVERS.map(srv => {
+              if (srv.type === 'divider') {
+                return <div key={srv.id} style={{ width: 24, height: 1, background: C.borderDark, margin: "4px 0" }} />;
+              }
+              const isActive = activeView === srv.id;
+              const isHome = srv.id === 'home';
+              return (
+                <button key={srv.id} onClick={() => setActiveView(srv.page)} title={srv.label}
+                  style={{
+                    width: 40, height: 40, borderRadius: isActive ? 12 : "50%", border: "none",
+                    background: isActive ? C.gold : isHome ? "transparent" : C.bgMedium,
+                    color: isActive ? C.bgDarker : isHome ? C.gold : C.textMuted,
+                    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "all 0.2s ease", flexShrink: 0,
+                  }}
+                  onMouseEnter={e => { if (!isActive) { e.currentTarget.style.borderRadius = "12px"; e.currentTarget.style.background = isHome ? C.bgMedium : C.bgElevated; e.currentTarget.style.color = C.textPrimary; } }}
+                  onMouseLeave={e => { if (!isActive) { e.currentTarget.style.borderRadius = "50%"; e.currentTarget.style.background = isHome ? "transparent" : C.bgMedium; e.currentTarget.style.color = isHome ? C.gold : C.textMuted; } }}>
+                  <ServerIconSvg d={srv.icon} />
+                </button>
+              );
+            })}
+          </div>
+          <ProfileBar />
         </div>
-        <ProfileBar />
-      </div>
-      <ChannelList activeView={activeView} commsTab={commsTab} onCommsTab={setCommsTab} />
+        {/* Channel Panel */}
+        <ChannelPanel activeView={activeView} collapsed={collapsed} onCollapse={toggleCollapse} />
+        {/* Expand button (when collapsed) */}
+        {collapsed && (
+          <button onClick={toggleCollapse} title="Expand sidebar"
+            style={{ position: "absolute", left: 56, top: 12, background: C.bgSidebar, border: `1px solid ${C.borderDark}`, color: C.textMuted, cursor: "pointer", padding: "4px 2px", borderRadius: "0 4px 4px 0", display: "flex", alignItems: "center", zIndex: 51 }}
+            onMouseEnter={e => { e.currentTarget.style.color = C.textPrimary; e.currentTarget.style.background = C.bgMedium; }}
+            onMouseLeave={e => { e.currentTarget.style.color = C.textMuted; e.currentTarget.style.background = C.bgSidebar; }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 5l7 7-7 7" /></svg>
+          </button>
+        )}
+      </aside>
+      {/* ── Main content ── */}
       <MainContent activeView={activeView} commsTab={commsTab} onCommsTab={setCommsTab} fileViewOpen={fileViewOpen} onToggleFileView={() => setFileViewOpen(f => !f)} />
     </div>
   );
