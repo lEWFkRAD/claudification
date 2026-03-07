@@ -1,4 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  listConversations, getConversation, createConversation, updateConversation,
+  sprenChat, listKeyring, registerKey, connectWebSocket, checkBackendHealth,
+} from "./api.js";
 
 /* ══════════════════════════════════════════════════════════════
    CLAUDIFICATION v4 — Lite Platform · OathLedger Muse
@@ -115,17 +119,18 @@ const FILE_CATEGORIES = [
 ];
 
 /* ── Sidebar — Server/Channel Navigation (unified pattern) ── */
+/* ── Option A: Engagement-Centric Sidebar (UI-CLAUD-002) ── */
 const SERVERS = [
-  { id: 'home', label: 'Home', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2v10a1 1 0 01-1 1h-3m-4 0v-6a1 1 0 011-1h2a1 1 0 011 1v6', page: 'home' },
+  { id: 'today', label: 'Today', icon: 'M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z', page: 'today' },
   { id: 'divider0', type: 'divider' },
-  { id: 'comms', label: 'Comms', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z', page: 'comms' },
-  { id: 'filesharing', label: 'Files', icon: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z', page: 'filesharing' },
+  { id: 'team', label: 'Team', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z', page: 'team' },
+  { id: 'engagements', label: 'Engagements', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01', page: 'engagements' },
   { id: 'divider1', type: 'divider' },
-  { id: 'admin', label: 'Admin', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', page: 'admin' },
-  { id: 'reports', label: 'Reports', icon: 'M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', page: 'reports' },
-  { id: 'divider2', type: 'divider' },
-  { id: 'docs', label: 'Docs', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', page: 'docs' },
+  { id: 'oathledger', label: 'OathLedger', icon: 'M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3', page: 'oathledger' },
+  { id: 'museboard', label: 'Muse Board', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z', page: 'museboard' },
   { id: 'agent', label: 'Agent', icon: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z', page: 'agent' },
+  { id: 'divider2', type: 'divider' },
+  { id: 'admin', label: 'Admin', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', page: 'admin' },
 ];
 
 /* ── System checks ── */
@@ -246,19 +251,19 @@ function ProfileBar() {
 /* ═══════════════════════════════════════════════════════════════
    CHANNEL PANEL — Unified pattern (matches Muse Board)
    ═══════════════════════════════════════════════════════════════ */
+/* ── Option A Channel Map (UI-CLAUD-002) ── */
 const CHANNEL_MAP = {
-  home: [
-    { type: "header", label: "LITE PLATFORM" },
-    { type: "item", label: "# dashboard", active: true },
-    { type: "item", label: "# announcements" },
+  today: [
+    { type: "header", label: "YOUR DAY" },
+    { type: "item", label: "Dashboard", prefix: "☀️", active: true },
+    { type: "item", label: "My Queue", prefix: "📋" },
+    { type: "item", label: "Deadlines", prefix: "⏰" },
     { type: "divider" },
-    { type: "header", label: "FOUR SYSTEMS" },
-    { type: "item", label: "OathLedger", prefix: "⚖️" },
-    { type: "item", label: "Lens", prefix: "◎" },
-    { type: "item", label: "Ardent", prefix: "◇" },
-    { type: "item", label: "Muse", prefix: "✦" },
+    { type: "header", label: "ALERTS" },
+    { type: "item", label: "Ardent Flags", prefix: "◇" },
+    { type: "item", label: "Announcements", prefix: "📢" },
   ],
-  comms: [
+  team: [
     { type: "header", label: "CHANNELS" },
     { type: "item", label: "general", prefix: "#", active: true },
     { type: "item", label: "tax-returns", prefix: "#" },
@@ -271,55 +276,41 @@ const CHANNEL_MAP = {
     { type: "item", label: "Molly" },
     { type: "item", label: "Charles" },
   ],
-  filesharing: [
-    { type: "header", label: "FILE NAVIGATION" },
-    { type: "item", label: "upload-queue", prefix: "#" },
-    { type: "item", label: "shared-with-me", prefix: "#" },
-    { type: "item", label: "recent-files", prefix: "#", active: true },
+  engagements: [
+    { type: "header", label: "PIPELINE" },
+    { type: "item", label: "All Active", prefix: "📊", active: true },
+    { type: "item", label: "My Assignments", prefix: "👤" },
     { type: "divider" },
-    { type: "header", label: "BY PERMISSION" },
-    { type: "item", label: "Executive Only", prefix: "🔒" },
-    { type: "item", label: "Management+", prefix: "🔐" },
-    { type: "item", label: "Engineering", prefix: "🔧" },
-    { type: "item", label: "All Staff", prefix: "🌐" },
+    { type: "header", label: "BY STAGE" },
+    { type: "item", label: "Draft", prefix: "📝" },
+    { type: "item", label: "Preparer Review", prefix: "🔍" },
+    { type: "item", label: "Reviewer Review", prefix: "✓" },
+    { type: "item", label: "Partner Review", prefix: "⭐" },
+    { type: "item", label: "Final", prefix: "✅" },
+    { type: "divider" },
+    { type: "header", label: "SEARCH" },
+    { type: "item", label: "Find Client...", prefix: "🔎" },
   ],
-  admin: [
-    { type: "header", label: "USER MANAGEMENT" },
-    { type: "item", label: "All Users", prefix: "👥", active: true },
-    { type: "item", label: "Create User", prefix: "+" },
-    { type: "item", label: "Reset PINs", prefix: "🔑" },
-    { type: "divider" },
-    { type: "header", label: "SECURITY" },
-    { type: "item", label: "Permissions", prefix: "🛡️" },
-    { type: "item", label: "Audit Log", prefix: "📋" },
-    { type: "item", label: "Session Policy", prefix: "🔒" },
-    { type: "divider" },
-    { type: "header", label: "SYSTEM" },
-    { type: "item", label: "Health Checks", prefix: "✅" },
-    { type: "item", label: "Backups", prefix: "💾" },
-    { type: "item", label: "Commands", prefix: "⚡" },
-  ],
-  reports: [
+  oathledger: [
     { type: "header", label: "EXTRACTION" },
-    { type: "item", label: "Job Pipeline", prefix: "📊", active: true },
-    { type: "item", label: "Cost Tracking", prefix: "💰" },
-    { type: "item", label: "LITE Loop Stats", prefix: "📈" },
+    { type: "item", label: "Queue", prefix: "📥", active: true },
+    { type: "item", label: "Processing", prefix: "⚙️" },
+    { type: "item", label: "Ready for Review", prefix: "✓" },
     { type: "divider" },
-    { type: "header", label: "QUALITY" },
-    { type: "item", label: "Drift Analysis", prefix: "🎯" },
-    { type: "item", label: "Smoke Tests", prefix: "🧪" },
-    { type: "item", label: "Golden Files", prefix: "🏆" },
+    { type: "header", label: "FACTS" },
+    { type: "item", label: "Unverified", prefix: "⚠️" },
+    { type: "item", label: "Verified Today", prefix: "✅" },
+    { type: "item", label: "Canonical Ledger", prefix: "⚖️" },
   ],
-  docs: [
-    { type: "header", label: "ARCHITECTURE" },
-    { type: "item", label: "Lite Platform", prefix: "📖", active: true },
-    { type: "item", label: "The LITE Loop", prefix: "🔄" },
-    { type: "item", label: "Four Systems", prefix: "🗃️" },
+  museboard: [
+    { type: "header", label: "BOARDS" },
+    { type: "item", label: "Spren Roadmap", prefix: "📋", active: true },
+    { type: "item", label: "Tax Season 2026", prefix: "📋" },
+    { type: "item", label: "Client Onboarding", prefix: "📋" },
     { type: "divider" },
-    { type: "header", label: "GOVERNANCE" },
-    { type: "item", label: "Principles", prefix: "📜" },
-    { type: "item", label: "Checklists", prefix: "📋" },
-    { type: "item", label: "Critical Rules", prefix: "⚠️" },
+    { type: "header", label: "VIEWS" },
+    { type: "item", label: "Timeline", prefix: "📅" },
+    { type: "item", label: "Resource Planner", prefix: "👥" },
   ],
   agent: [
     { type: "header", label: "CENTRAL AGENT" },
@@ -337,12 +328,28 @@ const CHANNEL_MAP = {
     { type: "item", label: "Facts Store", prefix: "📝" },
     { type: "item", label: "CAS Telemetry", prefix: "🔍" },
   ],
+  admin: [
+    { type: "header", label: "USER MANAGEMENT" },
+    { type: "item", label: "All Users", prefix: "👥", active: true },
+    { type: "item", label: "Create User", prefix: "+" },
+    { type: "item", label: "Reset PINs", prefix: "🔑" },
+    { type: "divider" },
+    { type: "header", label: "SECURITY" },
+    { type: "item", label: "Permissions", prefix: "🛡️" },
+    { type: "item", label: "Audit Log", prefix: "📋" },
+    { type: "item", label: "Session Policy", prefix: "🔒" },
+    { type: "divider" },
+    { type: "header", label: "SYSTEM" },
+    { type: "item", label: "Health Checks", prefix: "✅" },
+    { type: "item", label: "Backups", prefix: "💾" },
+    { type: "item", label: "Commands", prefix: "⚡" },
+  ],
 };
 
 function ChannelPanel({ activeView, collapsed, onCollapse }) {
   if (collapsed) return null;
 
-  const channels = CHANNEL_MAP[activeView] || CHANNEL_MAP.home;
+  const channels = CHANNEL_MAP[activeView] || CHANNEL_MAP.today;
   const server = SERVERS.find(s => s.id === activeView);
   const title = server ? server.label : "Claudification";
 
@@ -385,7 +392,112 @@ function ChannelPanel({ activeView, collapsed, onCollapse }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   HOME — Lite Platform Dashboard
+   TODAY — Personal Dashboard (Option A: replaces Home)
+   ═══════════════════════════════════════════════════════════════ */
+function TodayView() {
+  const myAssignments = RECENT_JOBS.filter(j => j.stage !== "final");
+  const urgentFlags = AUDIT_EVENTS.filter(e => e.level === "warn" || e.level === "error");
+  const daysToDeadline = IS_TAX_SEASON ? Math.ceil((new Date(NOW.getFullYear(), 3, 15) - NOW) / 86400000) : null;
+
+  return (
+    <div style={{ padding: "28px 36px", maxWidth: 920 }}>
+      {/* Greeting + tax season */}
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontFamily: C.font, fontWeight: 300, fontSize: 28, color: C.textPrimary, margin: "0 0 4px 0" }}>
+          Good {NOW.getHours() < 12 ? "morning" : NOW.getHours() < 17 ? "afternoon" : "evening"}, <span style={{ fontWeight: 700 }}>{CURRENT_USER.display.split(" ")[0]}</span>
+        </h1>
+        <div style={{ fontSize: 13, fontFamily: C.font, color: C.textMuted }}>
+          {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+        </div>
+        {IS_TAX_SEASON && (
+          <div style={{ marginTop: 10, padding: "10px 16px", borderRadius: 8, background: `${C.orange}15`, border: `1px solid ${C.orange}30`, display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 18 }}>🔥</span>
+            <div>
+              <div style={{ fontSize: 13, fontFamily: C.font, fontWeight: 700, color: C.orange }}>Tax Season Active</div>
+              <div style={{ fontSize: 12, fontFamily: C.font, color: C.textSecondary }}>{daysToDeadline} days to April 15 deadline</div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* My Queue */}
+      <Card style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 13, fontFamily: C.font, fontWeight: 700, color: C.textPrimary, marginBottom: 12 }}>📋 My Queue — {myAssignments.length} active</div>
+        {myAssignments.length === 0 ? (
+          <div style={{ fontSize: 13, fontFamily: C.font, color: C.textMuted, fontStyle: "italic" }}>No active assignments. You're caught up!</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {myAssignments.map(j => (
+              <div key={j.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "rgba(0,0,0,0.15)", borderRadius: 8, cursor: "pointer", transition: "all 0.15s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(88,101,242,0.08)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(0,0,0,0.15)"; }}>
+                <span style={{ fontFamily: "monospace", fontSize: 11, color: C.accent, fontWeight: 600, flexShrink: 0 }}>{j.id}</span>
+                <span style={{ fontSize: 13, fontFamily: C.font, fontWeight: 600, color: C.textPrimary, flex: 1 }}>{j.client}</span>
+                <Badge text={j.type} bg="rgba(255,255,255,0.06)" color={C.textSecondary} />
+                <Badge text={STAGE_DISPLAY[j.stage]} bg={j.stage === "partner_review" ? C.gold + "25" : C.accent + "25"} color={j.stage === "partner_review" ? C.gold : C.accent} />
+                {j.unread > 0 && <div style={{ width: 20, height: 20, borderRadius: "50%", background: C.red, color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{j.unread}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* Pipeline Summary */}
+      <Card style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 13, fontFamily: C.font, fontWeight: 700, color: C.textPrimary, marginBottom: 14 }}>📈 Pipeline — Review Stages</div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+          {REVIEW_STAGES.map((s, i) => {
+            const count = REPORT_JOBS.filter(j => j.stage === s).length;
+            return (
+              <div key={s} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ padding: "8px 12px", borderRadius: 8, background: count > 0 ? C.accent + "20" : "rgba(255,255,255,0.04)", border: `1px solid ${count > 0 ? C.accent + "40" : "rgba(255,255,255,0.06)"}`, textAlign: "center", minWidth: 80 }}>
+                  <div style={{ fontSize: 18, fontFamily: C.font, fontWeight: 800, color: count > 0 ? C.textPrimary : C.textMuted }}>{count}</div>
+                  <div style={{ fontSize: 9, fontFamily: C.font, color: C.textMuted, marginTop: 2 }}>{STAGE_DISPLAY[s]}</div>
+                </div>
+                {i < REVIEW_STAGES.length - 1 && <span style={{ color: C.textMuted, fontSize: 14 }}>→</span>}
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* Alerts */}
+      {urgentFlags.length > 0 && (
+        <Card style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 13, fontFamily: C.font, fontWeight: 700, color: C.orange, marginBottom: 10 }}>⚠️ Alerts — {urgentFlags.length} item(s)</div>
+          {urgentFlags.map((ev, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "6px 0", borderBottom: i < urgentFlags.length - 1 ? "1px solid rgba(255,255,255,0.03)" : "none" }}>
+              <StatusDot status={ev.level} />
+              <div>
+                <span style={{ fontSize: 12, fontFamily: C.font, fontWeight: 600, color: FOUR_SYSTEMS.find(x => x.name === ev.user) ? FOUR_SYSTEMS.find(x => x.name === ev.user).color : C.textPrimary }}>{ev.user}</span>
+                <span style={{ fontSize: 12, fontFamily: C.font, color: C.textSecondary, marginLeft: 6 }}>{ev.msg}</span>
+              </div>
+            </div>
+          ))}
+        </Card>
+      )}
+
+      {/* Four Systems Status (compact) */}
+      <Card>
+        <div style={{ fontSize: 13, fontFamily: C.font, fontWeight: 700, color: C.textPrimary, marginBottom: 10 }}>⚡ Systems</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          {FOUR_SYSTEMS.map(sys => (
+            <div key={sys.key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "rgba(0,0,0,0.15)", borderRadius: 8 }}>
+              <span style={{ fontSize: 16 }}>{sys.icon}</span>
+              <div>
+                <div style={{ fontSize: 13, fontFamily: C.font, fontWeight: 600, color: sys.color }}>{sys.name}</div>
+                <div style={{ fontSize: 10, fontFamily: C.font, color: C.textMuted }}>{sys.subtitle}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HOME — Lite Platform Dashboard (preserved for architecture reference)
    ═══════════════════════════════════════════════════════════════ */
 function HomeView() {
   return (
@@ -513,6 +625,202 @@ function FileSharingView() {
           </div>
         </Card>
       )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ENGAGEMENTS — Pipeline by Stage (Option A: no per-client channels)
+   ═══════════════════════════════════════════════════════════════ */
+function EngagementsView() {
+  const [stageFilter, setStageFilter] = useState(null);
+  const [search, setSearch] = useState("");
+
+  const filtered = REPORT_JOBS.filter(j => {
+    if (stageFilter && j.stage !== stageFilter) return false;
+    if (search && !j.client.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  return (
+    <div style={{ padding: "28px 36px", maxWidth: 920 }}>
+      <h2 style={{ fontFamily: C.font, fontWeight: 800, fontSize: 20, color: C.textPrimary, margin: "0 0 4px 0" }}>📋 Engagements</h2>
+      <p style={{ fontFamily: C.font, fontSize: 13, color: C.textMuted, margin: "0 0 20px 0" }}>Active client engagements across the review pipeline</p>
+
+      {/* Search */}
+      <div style={{ marginBottom: 16 }}>
+        <input
+          value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Search clients..."
+          style={{ width: "100%", maxWidth: 400, padding: "8px 14px", borderRadius: 8, border: `1px solid ${C.borderDark}`, background: C.bgElevated, color: C.textPrimary, fontSize: 13, fontFamily: C.font, outline: "none" }}
+        />
+      </div>
+
+      {/* Stage Filters */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
+        <button onClick={() => setStageFilter(null)} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: !stageFilter ? C.accent : "rgba(255,255,255,0.06)", color: !stageFilter ? "#fff" : C.textSecondary, fontSize: 12, fontFamily: C.font, fontWeight: 600, cursor: "pointer" }}>All ({REPORT_JOBS.length})</button>
+        {REVIEW_STAGES.map(s => {
+          const count = REPORT_JOBS.filter(j => j.stage === s).length;
+          return (
+            <button key={s} onClick={() => setStageFilter(stageFilter === s ? null : s)} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: stageFilter === s ? C.accent : "rgba(255,255,255,0.06)", color: stageFilter === s ? "#fff" : C.textSecondary, fontSize: 12, fontFamily: C.font, fontWeight: 600, cursor: "pointer" }}>
+              {STAGE_DISPLAY[s]} ({count})
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Engagement Cards */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {filtered.map(j => (
+          <Card key={j.id} style={{ cursor: "pointer", transition: "all 0.15s", border: "1px solid transparent" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                  <span style={{ fontSize: 15, fontFamily: C.font, fontWeight: 700, color: C.textPrimary }}>{j.client}</span>
+                  {j.unread > 0 && <div style={{ width: 18, height: 18, borderRadius: "50%", background: C.red, color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{j.unread}</div>}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontFamily: "monospace", fontSize: 11, color: C.accent }}>{j.id}</span>
+                  <Badge text={j.type} bg="rgba(255,255,255,0.06)" color={C.textSecondary} />
+                  <span style={{ fontSize: 11, fontFamily: C.font, color: C.textMuted }}>{j.pages} pages</span>
+                  <span style={{ fontSize: 11, fontFamily: C.font, color: C.textMuted }}>{j.cost}</span>
+                </div>
+              </div>
+              <Badge text={STAGE_DISPLAY[j.stage]} bg={j.stage === "final" ? C.gold + "25" : j.stage === "partner_review" ? C.green + "25" : C.accent + "25"} color={j.stage === "final" ? C.gold : j.stage === "partner_review" ? C.green : C.accent} />
+            </div>
+          </Card>
+        ))}
+        {filtered.length === 0 && (
+          <div style={{ textAlign: "center", padding: 40, color: C.textMuted, fontFamily: C.font }}>
+            {search ? `No clients matching "${search}"` : "No engagements at this stage"}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   OATHLEDGER — Cross-app: Extraction Pipeline
+   ═══════════════════════════════════════════════════════════════ */
+function OathLedgerView() {
+  return (
+    <div style={{ padding: "28px 36px", maxWidth: 920 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+        <span style={{ fontSize: 24 }}>⚖️</span>
+        <h2 style={{ fontFamily: C.font, fontWeight: 800, fontSize: 20, color: SYS_COLORS.oathledger, margin: 0 }}>OathLedger</h2>
+        <Badge text="KEEPER OF FINANCIAL TRUTH" bg={SYS_COLORS.oathledger + "20"} color={SYS_COLORS.oathledger} />
+      </div>
+      <p style={{ fontFamily: C.font, fontSize: 13, color: C.textMuted, margin: "0 0 20px 0" }}>Document extraction, fact generation, and verification pipeline</p>
+
+      {/* Extraction Queue */}
+      <Card style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 13, fontFamily: C.font, fontWeight: 700, color: C.textPrimary, marginBottom: 12 }}>📥 Extraction Queue</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+          {[
+            { label: "Queued", count: 3, color: C.orange },
+            { label: "Processing", count: 1, color: C.accent },
+            { label: "Ready for Review", count: 2, color: C.green },
+          ].map(q => (
+            <div key={q.label} style={{ padding: "14px", borderRadius: 8, background: q.color + "12", border: `1px solid ${q.color}30`, textAlign: "center" }}>
+              <div style={{ fontSize: 24, fontFamily: C.font, fontWeight: 800, color: q.color }}>{q.count}</div>
+              <div style={{ fontSize: 11, fontFamily: C.font, color: C.textSecondary, marginTop: 2 }}>{q.label}</div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Recent Extractions */}
+      <Card style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 13, fontFamily: C.font, fontWeight: 700, color: C.textPrimary, marginBottom: 12 }}>📊 Recent Jobs — LITE Loop Tracking</div>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: C.font, fontSize: 13 }}>
+          <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+            {["Job", "Client", "Type", "Stage", "Cost", "Pages"].map(h => <th key={h} style={{ textAlign: "left", padding: "6px 8px", color: C.textMuted, fontWeight: 600, fontSize: 11, textTransform: "uppercase" }}>{h}</th>)}
+          </tr></thead>
+          <tbody>
+            {REPORT_JOBS.map(j => (
+              <tr key={j.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                <td style={{ padding: "7px 8px", color: C.accent, fontWeight: 600, fontFamily: "monospace", fontSize: 12 }}>{j.id}</td>
+                <td style={{ padding: "7px 8px", color: C.textPrimary, fontWeight: 600 }}>{j.client}</td>
+                <td style={{ padding: "7px 8px", color: C.textSecondary }}>{j.type}</td>
+                <td style={{ padding: "7px 8px" }}><Badge text={STAGE_DISPLAY[j.stage]} bg={j.stage === "final" ? C.gold + "25" : C.accent + "25"} color={j.stage === "final" ? C.gold : C.accent} /></td>
+                <td style={{ padding: "7px 8px", color: C.textSecondary, fontFamily: "monospace" }}>{j.cost}</td>
+                <td style={{ padding: "7px 8px", color: C.textSecondary }}>{j.pages}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+
+      {/* LITE Loop */}
+      <Card>
+        <div style={{ fontSize: 13, fontFamily: C.font, fontWeight: 700, color: C.textPrimary, marginBottom: 14 }}>🔄 The LITE Loop</div>
+        <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+          {LITE_LOOP.map((step, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <div style={{ padding: "6px 10px", borderRadius: 6, background: step.color + "15", border: `1px solid ${step.color}30`, textAlign: "center", minWidth: 70 }}>
+                <div style={{ fontSize: 11, fontFamily: C.font, fontWeight: 700, color: step.color }}>{step.name}</div>
+                <div style={{ fontSize: 9, fontFamily: C.font, color: C.textMuted }}>{step.sub}</div>
+              </div>
+              {i < LITE_LOOP.length - 1 && <span style={{ color: C.textMuted, fontSize: 12 }}>→</span>}
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MUSE BOARD — Cross-app: Project Management
+   ═══════════════════════════════════════════════════════════════ */
+function MuseBoardView() {
+  const boards = [
+    { name: "Spren Roadmap", tasks: 28, inProgress: 2, done: 22, upNext: 4 },
+    { name: "Tax Season 2026", tasks: 45, inProgress: 8, done: 12, upNext: 15 },
+    { name: "Client Onboarding", tasks: 18, inProgress: 3, done: 10, upNext: 5 },
+  ];
+
+  return (
+    <div style={{ padding: "28px 36px", maxWidth: 920 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+        <span style={{ fontSize: 24 }}>✦</span>
+        <h2 style={{ fontFamily: C.font, fontWeight: 800, fontSize: 20, color: SYS_COLORS.muse, margin: 0 }}>Muse Board</h2>
+        <Badge text="WEAVER OF WORKFLOWS" bg={SYS_COLORS.muse + "20"} color={SYS_COLORS.muse} />
+      </div>
+      <p style={{ fontFamily: C.font, fontSize: 13, color: C.textMuted, margin: "0 0 20px 0" }}>Project boards, task tracking, and workflow orchestration</p>
+
+      {/* Board Cards */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {boards.map(b => (
+          <Card key={b.name} style={{ cursor: "pointer", transition: "all 0.15s" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12 }}>
+              <span style={{ fontSize: 15, fontFamily: C.font, fontWeight: 700, color: C.textPrimary }}>{b.name}</span>
+              <span style={{ fontSize: 12, fontFamily: C.font, color: C.textMuted, marginLeft: "auto" }}>{b.tasks} tasks</span>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ flex: 1, padding: "8px", borderRadius: 6, background: C.green + "12", textAlign: "center" }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: C.green }}>{b.done}</div>
+                <div style={{ fontSize: 10, color: C.textMuted }}>Done</div>
+              </div>
+              <div style={{ flex: 1, padding: "8px", borderRadius: 6, background: C.accent + "12", textAlign: "center" }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: C.accent }}>{b.inProgress}</div>
+                <div style={{ fontSize: 10, color: C.textMuted }}>In Progress</div>
+              </div>
+              <div style={{ flex: 1, padding: "8px", borderRadius: 6, background: C.orange + "12", textAlign: "center" }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: C.orange }}>{b.upNext}</div>
+                <div style={{ fontSize: 10, color: C.textMuted }}>Up Next</div>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Quick Link */}
+      <div style={{ marginTop: 20, padding: "12px 16px", borderRadius: 8, background: SYS_COLORS.muse + "10", border: `1px solid ${SYS_COLORS.muse}25`, display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ fontSize: 14 }}>🔗</span>
+        <span style={{ fontSize: 13, fontFamily: C.font, color: C.textSecondary }}>Open full Muse Board at <span style={{ color: SYS_COLORS.muse, fontWeight: 600 }}>localhost:5173</span></span>
+      </div>
     </div>
   );
 }
@@ -754,46 +1062,250 @@ function DocsView() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   AGENT HUB — Cross-system intelligent agent
+   AGENT HUB — Cross-system intelligent agent (CLAUDIFICATION-001)
+   Wired to muse-board backend: conversations + spren/chat proxy
    ═══════════════════════════════════════════════════════════════ */
+
+/* ── Agent system prompt for spren/chat proxy ── */
+const AGENT_SYSTEM_PROMPT = `You are the Lite Platform Central Agent — a cross-system intelligent assistant for the OathLedger financial platform.
+
+You have access to four systems:
+- OathLedger: CandidateFact generation, document intake, canonicalization
+- Lens: ContextBundle builder, intent scoping, boundary control
+- Ardent: Deterministic rule evaluation, severity scoring, evidence emission
+- Muse: Task orchestration, dependency resolution, alignment scoring
+
+Plus: Transaction Ledger, Facts Store, and CAS Telemetry.
+
+Current staff: ${OATH_USERS.filter(u => u.active).length} active users across admin, preparer, reviewer, and partner roles.
+
+Active pipeline:
+${REPORT_JOBS.map(j => `- ${j.id}: ${j.client} (${j.type}) — ${j.stage}, ${j.pages} pages, ${j.cost}`).join('\n')}
+
+Governance principles: Deterministic rules before AI, append-only logging, no hidden coupling, humans as final authority, explicit rule versions, 170+ tests per release.
+
+Respond concisely and factually. Reference specific job IDs, system names, and metrics when relevant.`;
+
+/* ── Offline fallback: keyword-based responses when proxy unavailable ── */
+function agentFallback(q) {
+  const ql = q.toLowerCase();
+  if (ql.includes("user") || ql.includes("who")) {
+    return `[Offline] OathLedger user store: ${OATH_USERS.filter(u => u.active).length} active users. Roles: 1 admin (Jeffrey Watts), 2 preparers (Ashley, Leigh\u2014disabled), 2 reviewers (Susan, Molly), 2 partners (Charles, Chris). Review chain (LITE steps 5\u21926) is fully staffed.`;
+  } else if (ql.includes("lite") || ql.includes("loop") || ql.includes("step")) {
+    return `[Offline] LITE Loop: 7-stage pipeline operational.\nStep 1 (Event): 3 triggers today\nStep 2 (CandidateFact): OathLedger generated 54 CandidateFacts\nStep 3 (ContextBundle): Lens scoped all, zero violations\nStep 4 (Ardent): 170+ rules, 1 drift alert (j-003)\nStep 5 (Human Review): 3 jobs in review\nStep 6 (Canonical): 2 finalized\nStep 7 (Statistical): All recorded`;
+  } else if (ql.includes("job") || ql.includes("extract")) {
+    return `[Offline] Pipeline: ${REPORT_JOBS.length} recent extractions. Ardent flagged drift on j-003 (Davis Holdings, 18.4% edit rate).`;
+  } else if (ql.includes("health") || ql.includes("status")) {
+    return `[Offline] Cannot reach backend for live status. Cached: all four systems were operational at last check.`;
+  } else if (ql.includes("governance") || ql.includes("principle")) {
+    return `[Offline] Governance: 6 principles\n\u2713 Deterministic rules before AI\n\u2713 Append-only logging\n\u2713 No hidden coupling\n\u2713 Humans as final authority\n\u2713 Explicit rule versions\n\u2713 170+ tests per release`;
+  }
+  return `[Offline] Backend unavailable. Keyword match not found for "${q}". Connect to muse-board (port 3001) and register an Anthropic key for full agent capabilities.`;
+}
+
 function AgentView() {
   const [query, setQuery] = useState("");
-  const [history, setHistory] = useState([
-    { role: "agent", text: "Central Agent online. Connected to all four Lite Platform systems:\n\n⚖️ OathLedger — CandidateFact generation, document intake, canonicalization\n◎ Lens — ContextBundle builder, intent scoping, boundary control\n◇ Ardent — Rule evaluation, severity scoring, evidence emission\n✦ Muse — Task orchestration, dependency resolution, alignment scoring\n\nPlus Transaction Ledger, Facts Store, and CAS Telemetry. Ready for queries." },
-  ]);
+  const [history, setHistory] = useState([]);
+  const [conversationId, setConversationId] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [backendOk, setBackendOk] = useState(null); // null=checking, true, false
+  const [keyringStatus, setKeyringStatus] = useState(null); // null=checking, 'ok', 'missing', 'disabled'
+  const [showKeyringModal, setShowKeyringModal] = useState(false);
+  const [keyInput, setKeyInput] = useState("");
+  const [keyError, setKeyError] = useState("");
+  const chatEndRef = useRef(null);
 
-  const handleSubmit = () => {
-    if (!query.trim()) return;
-    const q = query.trim();
-    setHistory(h => [...h, { role: "user", text: q }]);
-    setQuery("");
-    setTimeout(() => {
-      let response = "Processing query across all four systems...";
-      const ql = q.toLowerCase();
-      if (ql.includes("user") || ql.includes("who")) {
-        response = `Queried OathLedger user store: ${OATH_USERS.filter(u => u.active).length} active users. Roles: 1 admin (Jeffrey Watts), 2 preparers (Ashley, Leigh—disabled), 2 reviewers (Susan, Molly), 2 partners (Charles, Chris). Review chain (LITE steps 5→6) is fully staffed across all stages.`;
-      } else if (ql.includes("lite") || ql.includes("loop") || ql.includes("step")) {
-        response = `LITE Loop status: 7-stage pipeline operational.\n\nStep 1 (Event): 3 triggers today\nStep 2 (CandidateFact): OathLedger generated 54 CandidateFacts from 5 jobs\nStep 3 (ContextBundle): Lens scoped all with zero boundary violations\nStep 4 (Ardent): 170+ rules evaluated, 1 drift alert (j-003, 18.4% edit rate)\nStep 5 (Human Review): 3 jobs awaiting review across chain\nStep 6 (Canonical): 2 jobs reached Truth Written (Miller Corp, Bearden Internal)\nStep 7 (Statistical): Muse recorded all completions`;
-      } else if (ql.includes("job") || ql.includes("extract")) {
-        response = `OathLedger pipeline: ${REPORT_JOBS.length} recent extractions flowing through LITE Loop. Total cost: $4.54. Ardent flagged drift on j-003 (Davis Holdings). Muse tracking: 1 at preparer_review, 1 at reviewer_review, 1 at partner_review, 2 finalized with Canonical Facts written.`;
-      } else if (ql.includes("cost") || ql.includes("api")) {
-        response = `CAS telemetry (via Muse): 68 API calls in 24h. Cost: $2.10 (Davis Holdings—heaviest, 22 pages), $1.24 (Smith Family Trust), $0.67 (Thompson LLC), $0.38 (Miller Corp), $0.15 (Bearden Internal). OCR-first mode (OathLedger v6) saved ~$38 estimated vs full-vision.`;
-      } else if (ql.includes("ardent") || ql.includes("rule")) {
-        response = `Ardent status: Pure evaluation engine operational. No database, no I/O, no side effects. 170+ versioned rules active. Last drift check: edit rate 18.4% on j-003 exceeds 15% threshold—severity WARNING. Evidence emission nominal. All purity guarantees holding.`;
-      } else if (ql.includes("lens") || ql.includes("context")) {
-        response = `Lens status: ContextBundle builder nominal. Today: 5 bundles built with explicit intent, scope, constraints, and actor fields. 1 scope violation caught and retried (11:30 API boundary exceeded). Boundary control enforced on all evaluations. No unbounded evaluations permitted.`;
-      } else if (ql.includes("governance") || ql.includes("principle")) {
-        response = `Governance check: All 6 principles holding.\n✓ Deterministic rules before AI suggestions\n✓ Append-only event logging (847 events, no gaps)\n✓ No hidden coupling between systems\n✓ Humans as final authority (3 jobs in human review)\n✓ Explicit rule IDs and versions (Ardent v6)\n✓ 170+ tests passing\n\nThe human remains sovereign.`;
-      } else if (ql.includes("health") || ql.includes("status")) {
-        response = `All four systems operational:\n⚖️ OathLedger: Active — pipeline processing\n◎ Lens: Active — context bundling nominal\n◇ Ardent: Active — 170+ rules, 1 drift warning\n✦ Muse: Active — workflow tracking\n\nInfra: Flask v5.2 on :5050, SQLite WAL, Tesseract v5.3.1, Anthropic API connected. Warning: Disk at 12.3 GB (threshold 10 GB).`;
-      }
-      setHistory(h => [...h, { role: "agent", text: response }]);
-    }, 800);
+  const WELCOME_MSG = {
+    role: "agent",
+    text: "Central Agent online. Connected to all four Lite Platform systems:\n\n\u2696\ufe0f OathLedger \u2014 CandidateFact generation, document intake, canonicalization\n\u25ce Lens \u2014 ContextBundle builder, intent scoping, boundary control\n\u25c7 Ardent \u2014 Rule evaluation, severity scoring, evidence emission\n\u2726 Muse \u2014 Task orchestration, dependency resolution, alignment scoring\n\nPlus Transaction Ledger, Facts Store, and CAS Telemetry. Ready for queries.",
   };
+
+  // ── Scroll to bottom on new messages ──
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [history]);
+
+  // ── Initialize: check backend, keyring, load/create conversation ──
+  useEffect(() => {
+    let cancelled = false;
+    async function init() {
+      // 1. Check backend health
+      const healthy = await checkBackendHealth();
+      if (cancelled) return;
+      setBackendOk(healthy);
+
+      if (!healthy) {
+        setKeyringStatus('disabled');
+        setHistory([{ ...WELCOME_MSG, text: WELCOME_MSG.text + "\n\n\u26a0\ufe0f Backend (muse-board :3001) unreachable \u2014 running in offline mode with keyword fallback." }]);
+        return;
+      }
+
+      // 2. Check keyring
+      try {
+        const keys = await listKeyring(CURRENT_USER.id);
+        if (cancelled) return;
+        const hasAnthropic = keys.some(k => k.service === 'anthropic');
+        setKeyringStatus(hasAnthropic ? 'ok' : 'missing');
+      } catch {
+        if (cancelled) return;
+        setKeyringStatus('disabled');
+      }
+
+      // 3. Load most recent agent conversation or create one
+      try {
+        const convos = await listConversations();
+        if (cancelled) return;
+        const agentConvo = convos.find(c => c.title?.startsWith('Agent:'));
+        if (agentConvo) {
+          const full = await getConversation(agentConvo.id);
+          if (cancelled) return;
+          setConversationId(agentConvo.id);
+          // Convert from API format {role, content} to display format {role, text}
+          const msgs = (full.messages || []).map(m => ({
+            role: m.role === 'assistant' ? 'agent' : m.role,
+            text: m.content || m.text,
+          }));
+          setHistory(msgs.length > 0 ? msgs : [WELCOME_MSG]);
+        } else {
+          // Create new agent conversation
+          const convo = await createConversation('Agent: Central Agent', [
+            { role: 'assistant', content: WELCOME_MSG.text },
+          ]);
+          if (cancelled) return;
+          setConversationId(convo.id);
+          setHistory([WELCOME_MSG]);
+        }
+      } catch {
+        if (cancelled) return;
+        setHistory([WELCOME_MSG]);
+      }
+    }
+    init();
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── Persist conversation to backend ──
+  const persistConversation = useCallback(async (msgs) => {
+    if (!conversationId || !backendOk) return;
+    try {
+      // Convert display format to API format
+      const apiMsgs = msgs.map(m => ({
+        role: m.role === 'agent' ? 'assistant' : m.role,
+        content: m.text,
+      }));
+      await updateConversation(conversationId, { messages: apiMsgs });
+    } catch (e) {
+      console.warn('[Agent] Conversation persist failed:', e.message);
+    }
+  }, [conversationId, backendOk]);
+
+  // ── Submit handler: try spren/chat, fall back to keywords ──
+  const handleSubmit = useCallback(async () => {
+    if (!query.trim() || loading) return;
+    const q = query.trim();
+    const userMsg = { role: "user", text: q };
+    const newHistory = [...history, userMsg];
+    setHistory(newHistory);
+    setQuery("");
+    setLoading(true);
+
+    let response;
+    const useLive = backendOk && keyringStatus === 'ok';
+
+    if (useLive) {
+      try {
+        // Build message array for Anthropic API
+        const apiMessages = newHistory
+          .filter(m => m.role === 'user' || m.role === 'agent')
+          .map(m => ({
+            role: m.role === 'agent' ? 'assistant' : 'user',
+            content: m.text,
+          }));
+
+        const data = await sprenChat(apiMessages, {
+          system: AGENT_SYSTEM_PROMPT,
+          userId: CURRENT_USER.id,
+        });
+
+        response = data.content?.[0]?.text || "Agent returned empty response.";
+      } catch (e) {
+        console.warn('[Agent] sprenChat failed, falling back:', e.message);
+        response = agentFallback(q);
+      }
+    } else {
+      // Offline/no key: use keyword fallback
+      await new Promise(r => setTimeout(r, 400)); // small delay for UX
+      response = agentFallback(q);
+    }
+
+    const agentMsg = { role: "agent", text: response };
+    const finalHistory = [...newHistory, agentMsg];
+    setHistory(finalHistory);
+    setLoading(false);
+
+    // Persist asynchronously
+    persistConversation(finalHistory);
+  }, [query, loading, history, backendOk, keyringStatus, persistConversation]);
+
+  // ── New conversation ──
+  const handleNewChat = useCallback(async () => {
+    if (!backendOk) return;
+    try {
+      const convo = await createConversation('Agent: Central Agent', [
+        { role: 'assistant', content: WELCOME_MSG.text },
+      ]);
+      setConversationId(convo.id);
+      setHistory([WELCOME_MSG]);
+    } catch (e) {
+      console.warn('[Agent] New conversation failed:', e.message);
+    }
+  }, [backendOk]);
+
+  // ── Register Anthropic key ──
+  const handleKeyRegister = useCallback(async () => {
+    if (!keyInput.trim()) return;
+    setKeyError("");
+    try {
+      await registerKey('anthropic', keyInput.trim(), 'Claudification Agent', CURRENT_USER.id);
+      setKeyringStatus('ok');
+      setShowKeyringModal(false);
+      setKeyInput("");
+      setHistory(h => [...h, { role: "agent", text: "\u2705 Anthropic API key registered. Agent is now connected to Claude for intelligent responses." }]);
+    } catch (e) {
+      setKeyError(e.message);
+    }
+  }, [keyInput]);
+
+  // ── Connection status badge ──
+  const statusColor = backendOk === null ? C.textMuted : backendOk ? (keyringStatus === 'ok' ? C.green : C.orange) : C.red;
+  const statusLabel = backendOk === null ? "Connecting..." : backendOk ? (keyringStatus === 'ok' ? "Live (Claude)" : "Connected (no API key)") : "Offline";
 
   return (
     <div style={{ padding: "28px 36px", maxWidth: 920, display: "flex", flexDirection: "column", height: "calc(100vh - 48px)" }}>
-      <h2 style={{ fontFamily: C.font, fontWeight: 800, fontSize: 20, color: C.textPrimary, margin: "0 0 4px 0" }}>🤖 Centralized Intelligent Agent</h2>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+        <h2 style={{ fontFamily: C.font, fontWeight: 800, fontSize: 20, color: C.textPrimary, margin: 0 }}>🤖 Centralized Intelligent Agent</h2>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+          {/* Connection status */}
+          <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 12, background: `${statusColor}15`, border: `1px solid ${statusColor}30` }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: statusColor }} />
+            <span style={{ fontSize: 10, fontFamily: C.font, fontWeight: 600, color: statusColor }}>{statusLabel}</span>
+          </div>
+          {/* Key setup button (when missing) */}
+          {keyringStatus === 'missing' && (
+            <button onClick={() => setShowKeyringModal(true)}
+              style={{ padding: "3px 10px", borderRadius: 6, border: `1px solid ${C.orange}40`, background: `${C.orange}10`, color: C.orange, fontSize: 10, fontFamily: C.font, fontWeight: 600, cursor: "pointer" }}>
+              \ud83d\udd11 Setup Key
+            </button>
+          )}
+          {/* New chat */}
+          {backendOk && (
+            <button onClick={handleNewChat} title="New conversation"
+              style={{ padding: "3px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: C.textMuted, fontSize: 10, fontFamily: C.font, fontWeight: 600, cursor: "pointer" }}>
+              + New Chat
+            </button>
+          )}
+        </div>
+      </div>
       <p style={{ fontFamily: C.font, fontSize: 13, color: C.textMuted, margin: "0 0 14px 0" }}>Query across all four Lite Platform systems and connected data stores</p>
 
       {/* Connected systems */}
@@ -812,6 +1324,36 @@ function AgentView() {
         ))}
       </div>
 
+      {/* Keyring Registration Modal */}
+      {showKeyringModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
+          onClick={() => setShowKeyringModal(false)}>
+          <div style={{ background: C.bgElevated, borderRadius: 12, padding: "24px 28px", maxWidth: 440, width: "90%", border: `1px solid ${C.borderDark}`, boxShadow: "0 16px 48px rgba(0,0,0,0.5)" }}
+            onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontFamily: C.font, fontSize: 16, fontWeight: 700, color: C.textPrimary, margin: "0 0 8px 0" }}>\ud83d\udd10 Register Anthropic API Key</h3>
+            <p style={{ fontFamily: C.font, fontSize: 13, color: C.textMuted, margin: "0 0 16px 0", lineHeight: 1.5 }}>
+              Your key is encrypted server-side via Spren Keyring (SPREN-005). It never touches the browser after registration.
+            </p>
+            <input value={keyInput} onChange={e => setKeyInput(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleKeyRegister()}
+              placeholder="sk-ant-..."
+              type="password"
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: C.bgDark, color: C.textPrimary, fontSize: 14, fontFamily: "monospace", outline: "none", boxSizing: "border-box" }} />
+            {keyError && <div style={{ fontSize: 12, fontFamily: C.font, color: C.red, marginTop: 8 }}>{keyError}</div>}
+            <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
+              <button onClick={() => setShowKeyringModal(false)}
+                style={{ padding: "8px 16px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: C.textSecondary, fontSize: 13, fontFamily: C.font, cursor: "pointer" }}>
+                Cancel
+              </button>
+              <button onClick={handleKeyRegister}
+                style={{ padding: "8px 20px", borderRadius: 6, border: "none", background: C.accent, color: "#fff", fontSize: 13, fontFamily: C.font, fontWeight: 700, cursor: "pointer" }}>
+                Register Key
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Chat */}
       <div style={{ flex: 1, overflowY: "auto", marginBottom: 14, display: "flex", flexDirection: "column", gap: 10 }}>
         {history.map((msg, i) => (
@@ -827,13 +1369,34 @@ function AgentView() {
             </div>
           </div>
         ))}
+        {/* Loading indicator */}
+        {loading && (
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: C.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
+              <span style={{ fontSize: 13 }}>🤖</span>
+            </div>
+            <div style={{ padding: "10px 14px", background: C.bgElevated, borderRadius: "4px 12px 12px 12px" }}>
+              <div style={{ fontSize: 10, fontFamily: C.font, fontWeight: 700, color: C.accent, marginBottom: 4, textTransform: "uppercase" }}>Central Agent</div>
+              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                <span style={{ fontSize: 13, color: C.textMuted, fontFamily: C.font }}>Thinking</span>
+                <TypingDots />
+              </div>
+            </div>
+          </div>
+        )}
+        <div ref={chatEndRef} />
       </div>
 
       <div style={{ display: "flex", gap: 8 }}>
-        <input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSubmit()}
-          placeholder="Ask about LITE Loop, systems, users, jobs, governance, Ardent rules, Lens contexts..."
-          style={{ flex: 1, padding: "10px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: C.bgElevated, color: C.textPrimary, fontSize: 14, fontFamily: C.font, outline: "none" }} />
-        <button onClick={handleSubmit} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: C.accent, color: "#fff", fontSize: 14, fontFamily: C.font, fontWeight: 700, cursor: "pointer" }}>Send</button>
+        <input value={query} onChange={e => setQuery(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSubmit()}
+          disabled={loading}
+          placeholder={loading ? "Agent is thinking..." : "Ask about LITE Loop, systems, users, jobs, governance, Ardent rules, Lens contexts..."}
+          style={{ flex: 1, padding: "10px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: C.bgElevated, color: C.textPrimary, fontSize: 14, fontFamily: C.font, outline: "none", opacity: loading ? 0.6 : 1 }} />
+        <button onClick={handleSubmit} disabled={loading}
+          style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: loading ? C.bgMedium : C.accent, color: "#fff", fontSize: 14, fontFamily: C.font, fontWeight: 700, cursor: loading ? "default" : "pointer" }}>
+          {loading ? "..." : "Send"}
+        </button>
       </div>
     </div>
   );
@@ -924,6 +1487,72 @@ function CommsView({ commsTab, onCommsTab, compact }) {
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [activeDm, setActiveDm] = useState("susan");
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [chatConvoId, setChatConvoId] = useState(null);
+
+  // CLAUDIFICATION-001: Seed messages shown on first load; new user messages persist to backend
+  const SEED_MESSAGES = [
+    { user: "Ashley", time: "2:15 PM", msg: "Davis Holdings extraction complete \u2014 22 pages, ready for review.", role: "preparer" },
+    { user: "Susan", time: "2:28 PM", msg: "Moving j-001 to partner review \u2014 Smith Family Trust looks clean.", role: "reviewer" },
+    { user: "Susan", time: "2:30 PM", msg: null, role: "reviewer", jobShare: RECENT_JOBS[0], shareMsg: "Here's the Smith Family Trust for sign-off:" },
+    { user: "Molly", time: "2:35 PM", msg: "Heads up \u2014 Ardent flagged drift on j-003. Edit rate 18.4%.", role: "reviewer" },
+    { user: "Jeffrey Watts", time: "2:40 PM", msg: "Thanks Molly. Charles \u2014 j-001 is in your queue.", role: "admin" },
+    { user: "Charles", time: "2:52 PM", msg: "On it. Should have it finalized by end of day.", role: "partner" },
+  ];
+  const [chatMessages, setChatMessages] = useState(SEED_MESSAGES);
+
+  // Load team chat conversation on mount
+  useEffect(() => {
+    let cancelled = false;
+    async function loadTeamChat() {
+      try {
+        const convos = await listConversations();
+        if (cancelled) return;
+        const teamConvo = convos.find(c => c.title?.startsWith('Team:'));
+        if (teamConvo) {
+          const full = await getConversation(teamConvo.id);
+          if (cancelled) return;
+          setChatConvoId(teamConvo.id);
+          // Merge: seed messages + any persisted user messages
+          const persisted = (full.messages || []).map(m => ({
+            user: m.user || CURRENT_USER.display,
+            time: m.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            msg: m.content || m.msg,
+            role: m.role || CURRENT_USER.role,
+          }));
+          if (persisted.length > SEED_MESSAGES.length) {
+            setChatMessages(persisted);
+          }
+        } else {
+          const convo = await createConversation('Team: General', []);
+          if (cancelled) return;
+          setChatConvoId(convo.id);
+        }
+      } catch { /* backend unavailable — use seed data */ }
+    }
+    loadTeamChat();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Send a chat message
+  const handleChatSend = useCallback(async () => {
+    if (!chatInput.trim()) return;
+    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const newMsg = { user: CURRENT_USER.display, time: now, msg: chatInput.trim(), role: CURRENT_USER.role };
+    const updated = [...chatMessages, newMsg];
+    setChatMessages(updated);
+    setChatInput("");
+
+    // Persist to backend
+    if (chatConvoId) {
+      try {
+        const apiMsgs = updated.map(m => ({
+          user: m.user, time: m.time, msg: m.msg, content: m.msg, role: m.role,
+        }));
+        await updateConversation(chatConvoId, { messages: apiMsgs });
+      } catch { /* silent — message shows locally */ }
+    }
+  }, [chatInput, chatMessages, chatConvoId]);
 
   const tabs = [
     { key: "conversations", label: "Chat", icon: "💬" },
@@ -1295,15 +1924,7 @@ function CommsView({ commsTab, onCommsTab, compact }) {
     );
   }
 
-  // ═══ CHAT (default) ═══
-  const messages = [
-    { user: "Ashley", time: "2:15 PM", msg: "Davis Holdings extraction complete — 22 pages, ready for review.", role: "preparer" },
-    { user: "Susan", time: "2:28 PM", msg: "Moving j-001 to partner review — Smith Family Trust looks clean.", role: "reviewer" },
-    { user: "Susan", time: "2:30 PM", msg: null, role: "reviewer", jobShare: RECENT_JOBS[0], shareMsg: "Here's the Smith Family Trust for sign-off:" },
-    { user: "Molly", time: "2:35 PM", msg: "Heads up — Ardent flagged drift on j-003. Edit rate 18.4%.", role: "reviewer" },
-    { user: "Jeffrey Watts", time: "2:40 PM", msg: "Thanks Molly. Charles — j-001 is in your queue.", role: "admin" },
-    { user: "Charles", time: "2:52 PM", msg: "On it. Should have it finalized by end of day.", role: "partner" },
-  ];
+  // ═══ CHAT (default) — CLAUDIFICATION-001: now backed by state ═══
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -1341,9 +1962,9 @@ function CommsView({ commsTab, onCommsTab, compact }) {
         </div>
       </div>
 
-      {/* Messages */}
+      {/* Messages — CLAUDIFICATION-001: backed by state */}
       <div style={{ flex: 1, overflowY: "auto", padding: compact ? "10px 14px" : "16px 28px" }}>
-        {messages.map((m, i) => (
+        {chatMessages.map((m, i) => (
           <div key={i} style={{ display: "flex", gap: compact ? 10 : 14, marginBottom: compact ? 14 : 18 }}>
             <div style={{ width: compact ? 30 : 40, height: compact ? 30 : 40, borderRadius: "50%", background: ROLE_BADGE[m.role]?.bg || "rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
               <span style={{ fontSize: compact ? 12 : 16, fontFamily: C.font, fontWeight: 700, color: ROLE_BADGE[m.role]?.color }}>{m.user[0]}</span>
@@ -1395,8 +2016,10 @@ function CommsView({ commsTab, onCommsTab, compact }) {
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <button onClick={() => setShareMenuOpen(!shareMenuOpen)} style={{ minWidth: 36, height: 36, borderRadius: 6, border: `1px solid ${shareMenuOpen ? C.accent + "40" : "rgba(255,255,255,0.1)"}`, background: shareMenuOpen ? `${C.accent}12` : C.bgElevated, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
             title="Share a document">📄</button>
-          <input placeholder="Message General" style={{ flex: 1, padding: "8px 12px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: C.bgElevated, color: C.textPrimary, fontSize: 14, fontFamily: C.font, outline: "none", minHeight: 36 }} />
-          <button style={{ padding: "8px 16px", borderRadius: 6, border: "none", background: C.accent, color: "#fff", fontSize: 14, fontFamily: C.font, fontWeight: 700, cursor: "pointer", minHeight: 36 }}>Send</button>
+          <input value={chatInput} onChange={e => setChatInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleChatSend()}
+            placeholder="Message General" style={{ flex: 1, padding: "8px 12px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: C.bgElevated, color: C.textPrimary, fontSize: 14, fontFamily: C.font, outline: "none", minHeight: 36 }} />
+          <button onClick={handleChatSend} style={{ padding: "8px 16px", borderRadius: 6, border: "none", background: C.accent, color: "#fff", fontSize: 14, fontFamily: C.font, fontWeight: 700, cursor: "pointer", minHeight: 36 }}>Send</button>
         </div>
       </div>
     </div>
@@ -1420,8 +2043,8 @@ function PlaceholderView({ icon, title }) {
 function MainContent({ activeView, commsTab, onCommsTab, fileViewOpen, onToggleFileView }) {
   const cat = SERVERS.find(s => s.id === activeView && s.type !== 'divider');
 
-  // ── COMMS: special layout with people panel on right ──
-  if (activeView === "comms") {
+  // ── TEAM (was COMMS): special layout with people panel on right ──
+  if (activeView === "team") {
     if (fileViewOpen) {
       // Split layout: file viewer left, comms panel right (no people panel — too narrow)
       return (
@@ -1475,10 +2098,13 @@ function MainContent({ activeView, commsTab, onCommsTab, fileViewOpen, onToggleF
     );
   }
 
-  // ── Non-comms views: standard layout ──
+  // ── Non-comms views: standard layout (Option A routing) ──
   const map = {
-    home: <HomeView />, filesharing: <FileSharingView />,
-    admin: <AdminView />, reports: <ReportsView />, docs: <DocsView />, agent: <AgentView />,
+    today: <TodayView />, home: <HomeView />,
+    engagements: <EngagementsView />, oathledger: <OathLedgerView />,
+    museboard: <MuseBoardView />, agent: <AgentView />,
+    admin: <AdminView />, reports: <ReportsView />, docs: <DocsView />,
+    filesharing: <FileSharingView />,
   };
   return (
     <div style={{ flex: 1, background: C.bgContent, display: "flex", flexDirection: "column", minWidth: 0 }}>
@@ -1487,7 +2113,7 @@ function MainContent({ activeView, commsTab, onCommsTab, fileViewOpen, onToggleF
           {cat?.label || "Home"}
         </span>
       </div>
-      <div style={{ flex: 1, overflowY: "auto" }}>{map[activeView] || <HomeView />}</div>
+      <div style={{ flex: 1, overflowY: "auto" }}>{map[activeView] || <TodayView />}</div>
     </div>
   );
 }
@@ -1496,9 +2122,10 @@ function MainContent({ activeView, commsTab, onCommsTab, fileViewOpen, onToggleF
    ROOT — Unified sidebar: server rail + channel panel
    ═══════════════════════════════════════════════════════════════ */
 export default function App() {
-  const [activeView, setActiveView] = useState("home");
+  const [activeView, setActiveView] = useState("today");
   const [commsTab, setCommsTab] = useState("conversations");
   const [fileViewOpen, setFileViewOpen] = useState(false);
+  const [wsConnected, setWsConnected] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem('cf_sidebar_collapsed') === 'true'; } catch { return false; }
   });
@@ -1509,6 +2136,32 @@ export default function App() {
       return next;
     });
   };
+
+  // CLAUDIFICATION-001: WebSocket connection for real-time updates
+  useEffect(() => {
+    let ws;
+    let reconnectTimer;
+    function connect() {
+      ws = connectWebSocket(
+        (data) => {
+          // Handle broadcast events from muse-board
+          // Future: update conversation lists, task changes, etc.
+          console.log('[Claudification] WS event:', data.type);
+        },
+        () => setWsConnected(true),
+        () => {
+          setWsConnected(false);
+          // Auto-reconnect after 5s
+          reconnectTimer = setTimeout(connect, 5000);
+        }
+      );
+    }
+    connect();
+    return () => {
+      clearTimeout(reconnectTimer);
+      if (ws) ws.close();
+    };
+  }, []);
 
   return (
     <div style={{ width: "100%", height: "100vh", display: "flex", background: C.bgDark, fontFamily: C.font, color: C.textPrimary, overflow: "hidden" }}>
